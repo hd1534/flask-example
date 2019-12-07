@@ -1,0 +1,55 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: docker-registry.~~~
+  IMAGE_NAME: sample1
+  PRO_IMAGE_TAG: $DOCKER_REGISTRY/$IMAGE_NAME:pro
+  DEV_IMAGE_TAG: $DOCKER_REGISTRY/$IMAGE_NAME:dev
+
+pep8-check:
+  image: $DOCKER_REGISTRY/build/pytest:latest
+  stage: test
+  script:
+    - py.test --pep8
+  tags:
+    - main
+
+docker-build:
+  image: docker:latest
+  stage: build
+  script:
+    - docker build -t $PRO_IMAGE_TAG -t $DEV_IMAGE_TAG .
+  tags:
+    - main
+
+dev-deploy:
+ image: docker:latest
+ stage: deploy
+ only:
+    - develop
+ script:
+    - docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD $DOCKER_REGISTRY
+    - docker push $DEV_IMAGE_TAG
+ environment:
+    name: test
+    url: https://dev-api.sample1.com
+ tags:
+    - main
+
+production-deploy:
+  image: docker:latest
+  stage: deploy
+  only:
+    - master
+  when: manual
+  script:
+    - docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD $DOCKER_REGISTRY
+    - docker push $PRO_IMAGE_TAG
+  environment:
+    name: test
+    url: https://api.sample1.com
+  tags:
+    - main
